@@ -3,7 +3,6 @@ use aiken/collection/dict
 use aiken/collection/list
 use aiken/collection/pairs
 use aiken/interval.{Finite}
-use aiken/math/rational
 use aiken/primitive/bytearray
 use aiken/primitive/string
 use cardano/address.{Address, Script}
@@ -12,12 +11,10 @@ use cardano/transaction.{
   InlineDatum, Input, Mint, Output, OutputReference, Redeemer, ScriptPurpose,
   ValidityRange,
 }
-use pulse_math
 use types.{
   Asset, LPBurnLp, LPInitLp, LPMintLp, LPTokenRedeemer, MarketDatum,
-  MarketInfoDatum, OracleDatum, PubKeyHash, SYVaultDatum,
-  UnderlyingAssetVaultDatum, YTSwapSYForYT, YTSwapYTForSY,
-  YieldTokenizationMintRedeemer,
+  MarketInfoDatum, OracleDatum, PubKeyHash, SYVaultDatum, YTSwapSYForYT,
+  YTSwapYTForSY, YieldTokenizationMintRedeemer,
 }
 
 pub const year_in_milliseconds = 31_536_000_000
@@ -257,46 +254,10 @@ pub fn validate_sy_vault_own_utxos(
   (own_input, own_output, own_input_datum, own_output_datum)
 }
 
-/// Validates underlying asset vault input/output UTxOs
-/// Returns (input, output, input_datum, output_datum)
-pub fn validate_underlying_asset_vault_utxos(
-  inputs: List<Input>,
-  outputs: List<Output>,
-  input_idx: Int,
-  output_idx: Int,
-  vault_nft: Asset,
-  policy_id: PolicyId,
-  expected_market_id: OutputReference,
-) -> (Input, Output, UnderlyingAssetVaultDatum, UnderlyingAssetVaultDatum) {
-  expect Some(vault_input) = list.at(inputs, input_idx)
-  expect Some(vault_output) = list.at(outputs, output_idx)
-  expect
-    assets.quantity_of(
-      vault_input.output.value,
-      vault_nft.policy_id,
-      vault_nft.asset_name,
-    ) == 1
-  expect
-    assets.quantity_of(
-      vault_output.value,
-      vault_nft.policy_id,
-      vault_nft.asset_name,
-    ) == 1
-  expect vault_input.output.address == vault_output.address
-  expect vault_input.output.address.payment_credential == Script(policy_id)
-  expect InlineDatum(vault_output_inline_datum) = vault_output.datum
-  expect vault_output_datum: UnderlyingAssetVaultDatum =
-    vault_output_inline_datum
-  expect InlineDatum(vault_input_inline_datum) = vault_input.output.datum
-  expect vault_input_datum: UnderlyingAssetVaultDatum = vault_input_inline_datum
-  expect vault_input_datum.market_id == vault_output_datum.market_id
-  expect vault_input_datum.market_id == expected_market_id
-  (vault_input, vault_output, vault_input_datum, vault_output_datum)
-}
-
-/// Validates market input/output for yield tokenization swaps
+/// Validates market input/output UTxOs
+/// Used by LP token and yield tokenization validators
 /// Returns (market_input, market_output, market_input_datum, market_output_datum)
-pub fn validate_yt_market_utxos(
+pub fn validate_market_utxos(
   inputs: List<Input>,
   outputs: List<Output>,
   market_input_idx: Int,
@@ -306,6 +267,7 @@ pub fn validate_yt_market_utxos(
 ) -> (Input, Output, MarketDatum, MarketDatum) {
   expect Some(market_input) = list.at(inputs, market_input_idx)
   expect Some(market_output) = list.at(outputs, market_output_idx)
+  expect market_input.output.address == market_output.address
   expect
     assets.quantity_of(
       market_input.output.value,
@@ -385,49 +347,6 @@ pub fn validate_yt_delegation(
   }
 }
 
-/// Calculates new ln implied rate after swap
-/// Returns the new_ln_implied_rate
-pub fn calculate_post_swap_rate(
-  output_datum_total_sy: Int,
-  output_datum_total_pt: Int,
-  own_input_datum: MarketDatum,
-  oracle_datum: OracleDatum,
-  market_info_datum: MarketInfoDatum,
-  end_valid_time_range: Int,
-) -> Int {
-  expect Some(output_sy_rational) = rational.new(output_datum_total_sy, 1)
-  expect Some(py_index_rational) =
-    rational.new(oracle_datum.py_index, oracle_datum.based)
-  let total_asset_rational = rational.mul(output_sy_rational, py_index_rational)
-  let total_asset = pulse_math.rational_to_int(total_asset_rational, 1)
-  let time_to_expiry = market_info_datum.expiry - end_valid_time_range
-  let rate_scalar =
-    pulse_math.calculate_rate_scalar(
-      market_info_datum.scalar_root,
-      time_to_expiry,
-    )
-  expect Some(input_sy_rational) = rational.new(own_input_datum.total_sy, 1)
-  let input_asset_rational = rational.mul(input_sy_rational, py_index_rational)
-  let input_total_asset = pulse_math.rational_to_int(input_asset_rational, 1)
-  let rate_anchor =
-    pulse_math.calculate_rate_anchor(
-      own_input_datum.last_ln_implied_rate,
-      own_input_datum.total_pt,
-      input_total_asset,
-      rate_scalar,
-      time_to_expiry,
-      oracle_datum.based,
-    )
-  pulse_math.calculate_new_ln_implied_rate(
-    output_datum_total_pt,
-    total_asset,
-    rate_scalar,
-    rate_anchor,
-    time_to_expiry,
-    oracle_datum.based,
-  )
-}
-
 /// Verifies market output datum and value after swap
 /// Returns True if validation passes
 pub fn verify_market_swap_output(
@@ -435,8 +354,6 @@ pub fn verify_market_swap_output(
   own_input_datum: MarketDatum,
   output_datum_total_sy: Int,
   output_datum_total_pt: Int,
-  output_datum_total_fee: Int,
-  new_ln_implied_rate: Int,
   own_output: Output,
   own_input: Input,
   market_info_datum: MarketInfoDatum,
@@ -445,8 +362,6 @@ pub fn verify_market_swap_output(
   expect own_output_datum.total_pt == output_datum_total_pt
   expect own_output_datum.total_lp == own_input_datum.total_lp
   expect own_output_datum.reserved_lp == own_input_datum.reserved_lp
-  expect own_output_datum.total_fee == output_datum_total_fee
-  expect own_output_datum.last_ln_implied_rate == new_ln_implied_rate
   expect
     assets.match(
       own_output.value,
@@ -457,8 +372,8 @@ pub fn verify_market_swap_output(
             output_datum_total_pt - own_input_datum.total_pt,
           )
         |> assets.add(
-            market_info_datum.yield_tokenization_policy_id,
-            market_info_datum.sy_token_name,
+            market_info_datum.underlying_asset.policy_id,
+            market_info_datum.underlying_asset.asset_name,
             output_datum_total_sy - own_input_datum.total_sy,
           ),
       >=,

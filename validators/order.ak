@@ -5,9 +5,9 @@ use cardano/transaction.{
   InlineDatum, Input, Mint, Output, OutputReference, Transaction,
 }
 use types.{
-  Asset, MarketDatum, OBurnLP, OInitLP, OMergeSY, OMintLP, OSplitSY, OStakeYT,
+  Asset, MarketDatum, OBurnLP, OInitLP, OMergeSY, OMintLP, OSplitSY,
   OSwapExactPTForSY, OSwapExactSYForPT, OSwapExactSYForYT, OSwapExactYTForSY,
-  OUnstakeYT, OUnwrapSY, OWithdrawYTReward, OWrapSY, OrderDatum, SYVaultDatum,
+  OUnstakeYT, OWithdrawYTReward, OrderDatum, SYVaultDatum,
 }
 use utils.{validate_market_info_ref}
 
@@ -61,38 +61,6 @@ validator order(params: OrderParams) {
         expect InlineDatum(order_inline_datum) = order_input.output.datum
         expect order_datum: OrderDatum = order_inline_datum
         when order_datum is {
-          OWrapSY { .. } -> {
-            expect Some(wrap_yt_mint_redeemer) =
-              pairs.get_first(
-                redeemers,
-                Mint(market_info_datum.yield_tokenization_policy_id),
-              )
-            expect yt_mint_redeemer: types.YieldTokenizationMintRedeemer =
-              wrap_yt_mint_redeemer
-            expect
-              when yt_mint_redeemer is {
-                types.YTWrapSY { .. } -> True
-                types.YTRefTokenAction { .. } -> True
-                _ -> False
-              }
-            True
-          }
-          OUnwrapSY { .. } -> {
-            expect Some(wrap_yt_mint_redeemer) =
-              pairs.get_first(
-                redeemers,
-                Mint(market_info_datum.yield_tokenization_policy_id),
-              )
-            expect yt_mint_redeemer: types.YieldTokenizationMintRedeemer =
-              wrap_yt_mint_redeemer
-            expect
-              when yt_mint_redeemer is {
-                types.YTUnwrapSY { .. } -> True
-                types.YTRefTokenAction { .. } -> True
-                _ -> False
-              }
-            True
-          }
           OSplitSY { .. } -> {
             expect Some(wrap_yt_mint_redeemer) =
               pairs.get_first(
@@ -229,21 +197,6 @@ validator order(params: OrderParams) {
               }
             True
           }
-          OStakeYT { .. } -> {
-            expect Some(wrap_ytstake_authtoken_mint_redeemer) =
-              pairs.get_first(
-                redeemers,
-                Mint(market_info_datum.ytstake_authtoken_policy_id),
-              )
-            expect ytstake_authtoken_mint_redeemer: types.YTStakeAuthTokenRedeemer =
-              wrap_ytstake_authtoken_mint_redeemer
-            expect
-              when ytstake_authtoken_mint_redeemer is {
-                types.YTStake { .. } -> True
-                _ -> False
-              }
-            True
-          }
           OWithdrawYTReward { .. } -> {
             expect Some(sy_vault_input_idx) = option_sy_vault_idx
             expect Some(sy_vault_input) = list.at(inputs, sy_vault_input_idx)
@@ -280,62 +233,28 @@ validator order(params: OrderParams) {
         expect InlineDatum(order_inline_datum) = order_input.output.datum
         expect order_datum: OrderDatum = order_inline_datum
         when order_datum is {
-          OWrapSY { o_market_id, o_owner_pkh, .. } -> {
-            expect o_market_id == params.market_id
+          OSplitSY { o_owner_pkh, .. } ->
             list.has(extra_signatories, o_owner_pkh)
-          }
-          OUnwrapSY { o_market_id, o_owner_pkh, .. } -> {
-            expect o_market_id == params.market_id
+          OMergeSY { o_owner_pkh, .. } ->
             list.has(extra_signatories, o_owner_pkh)
-          }
-          OSplitSY { o_market_id, o_owner_pkh, .. } -> {
-            expect o_market_id == params.market_id
+          OInitLP { o_owner_pkh, .. } ->
             list.has(extra_signatories, o_owner_pkh)
-          }
-          OMergeSY { o_market_id, o_owner_pkh, .. } -> {
-            expect o_market_id == params.market_id
+          OMintLP { o_owner_pkh, .. } ->
             list.has(extra_signatories, o_owner_pkh)
-          }
-          OInitLP { o_market_id, o_owner_pkh, .. } -> {
-            expect o_market_id == params.market_id
+          OBurnLP { o_owner_pkh, .. } ->
             list.has(extra_signatories, o_owner_pkh)
-          }
-          OMintLP { o_market_id, o_owner_pkh, .. } -> {
-            expect o_market_id == params.market_id
+          OSwapExactSYForPT { o_owner_pkh, .. } ->
             list.has(extra_signatories, o_owner_pkh)
-          }
-          OBurnLP { o_market_id, o_owner_pkh, .. } -> {
-            expect o_market_id == params.market_id
+          OSwapExactPTForSY { o_owner_pkh, .. } ->
             list.has(extra_signatories, o_owner_pkh)
-          }
-          OSwapExactSYForPT { o_market_id, o_owner_pkh, .. } -> {
-            expect o_market_id == params.market_id
+          OSwapExactSYForYT { o_owner_pkh, .. } ->
             list.has(extra_signatories, o_owner_pkh)
-          }
-          OSwapExactPTForSY { o_market_id, o_owner_pkh, .. } -> {
-            expect o_market_id == params.market_id
+          OSwapExactYTForSY { o_owner_pkh, .. } ->
             list.has(extra_signatories, o_owner_pkh)
-          }
-          OSwapExactSYForYT { o_market_id, o_owner_pkh, .. } -> {
-            expect o_market_id == params.market_id
+          OWithdrawYTReward { o_owner_pkh, .. } ->
             list.has(extra_signatories, o_owner_pkh)
-          }
-          OSwapExactYTForSY { o_market_id, o_owner_pkh, .. } -> {
-            expect o_market_id == params.market_id
+          OUnstakeYT { o_owner_pkh, .. } ->
             list.has(extra_signatories, o_owner_pkh)
-          }
-          OStakeYT { o_market_id, o_owner_pkh, .. } -> {
-            expect o_market_id == params.market_id
-            list.has(extra_signatories, o_owner_pkh)
-          }
-          OWithdrawYTReward { o_market_id, o_owner_pkh, .. } -> {
-            expect o_market_id == params.market_id
-            list.has(extra_signatories, o_owner_pkh)
-          }
-          OUnstakeYT { o_market_id, o_owner_pkh, .. } -> {
-            expect o_market_id == params.market_id
-            list.has(extra_signatories, o_owner_pkh)
-          }
         }
       }
     }

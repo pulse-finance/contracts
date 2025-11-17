@@ -1,6 +1,7 @@
 use aiken/crypto.{Blake2b_224, Hash, VerificationKey}
+use cardano/address.{Address}
 use cardano/assets.{AssetName, PolicyId}
-use cardano/transaction.{OutputReference}
+use cardano/transaction.{Datum, OutputReference}
 
 pub type PubKeyHash =
   Hash<Blake2b_224, VerificationKey>
@@ -14,11 +15,12 @@ pub type MarketInfoDatum {
   market_id: OutputReference,
   underlying_asset: Asset,
   min_liquidity: Int,
-  sy_token_name: AssetName,
   pt_token_name: AssetName,
   yt_token_name: AssetName,
+  // milliseconds since 1970
   expiry: Int,
-  reserve_fee_percent: Int,
+  // milliseconds
+  duration: Int,
   // based multiplier, default 10_000
   multiplier: Int,
   batcher_policy_id: ByteArray,
@@ -33,6 +35,9 @@ pub type MarketInfoDatum {
   scalar_root: Int,
   initial_anchor: Int,
   ln_fee_rate_root: Int,
+  init_py_index: Int,
+  // Borrow fee for YT swaps (f_borrow in Section 2.5.3/2.5.4)
+  ln_borrow_fee_rate: Int,
 }
 
 pub type MarketDatum {
@@ -40,130 +45,72 @@ pub type MarketDatum {
   total_sy: Int,
   total_pt: Int,
   total_lp: Int,
-  total_fee: Int,
   reserved_lp: Int,
-  last_ln_implied_rate: Int,
 }
 
 pub type OrderDatum {
-  OWrapSY {
-    o_market_id: OutputReference,
-    o_owner_pkh: PubKeyHash,
-    o_owner_stake_key: Option<PubKeyHash>,
-    o_batcher_fee: Int,
-    o_amount: Int,
-  }
-  OUnwrapSY {
-    o_market_id: OutputReference,
-    o_owner_pkh: PubKeyHash,
-    o_owner_stake_key: Option<PubKeyHash>,
-    o_batcher_fee: Int,
-    o_amount: Int,
-  }
   OSplitSY {
-    o_market_id: OutputReference,
     o_owner_pkh: PubKeyHash,
-    o_owner_stake_key: Option<PubKeyHash>,
-    o_receive_pt_pkh: PubKeyHash,
-    o_receive_pt_stake_key: Option<PubKeyHash>,
-    o_receive_yt_pkh: PubKeyHash,
-    o_receive_yt_stake_key: Option<PubKeyHash>,
-    o_batcher_fee: Int,
-    o_sy_amount: Int,
+    o_receive_pt_addr: Address,
+    o_receive_pt_datum: Datum,
+    o_receive_yt_addr: Address,
+    o_receive_yt_datum: Datum,
   }
   OMergeSY {
-    o_market_id: OutputReference,
     o_owner_pkh: PubKeyHash,
-    o_owner_stake_key: Option<PubKeyHash>,
-    o_batcher_fee: Int,
-    o_pt_amount: Int,
+    o_receive_addr: Address,
+    o_receive_datum: Datum,
   }
-  OInitLP {
-    o_market_id: OutputReference,
-    o_owner_pkh: PubKeyHash,
-    o_owner_stake_key: Option<PubKeyHash>,
-    o_batcher_fee: Int,
-    o_sy_desired_amount: Int,
-    o_pt_desired_amount: Int,
-    o_lp_to_account: Int,
-  }
+  OInitLP { o_owner_pkh: PubKeyHash, o_owner_stake_key: Option<PubKeyHash> }
   OMintLP {
-    o_market_id: OutputReference,
     o_owner_pkh: PubKeyHash,
-    o_owner_stake_key: Option<PubKeyHash>,
-    o_batcher_fee: Int,
-    o_sy_desired_amount: Int,
-    o_pt_desired_amount: Int,
+    o_receive_addr: Address,
+    o_receive_datum: Datum,
   }
   OBurnLP {
-    o_market_id: OutputReference,
     o_owner_pkh: PubKeyHash,
-    o_owner_stake_key: Option<PubKeyHash>,
-    o_receive_sy_pkh: PubKeyHash,
-    o_receive_sy_stake_key: Option<PubKeyHash>,
-    o_receive_pt_pkh: PubKeyHash,
-    o_receive_pt_stake_key: Option<PubKeyHash>,
-    o_batcher_fee: Int,
-    o_lp_amount: Int,
+    o_receive_sy_addr: Address,
+    o_receive_sy_datum: Datum,
+    o_receive_pt_addr: Address,
+    o_receive_pt_datum: Datum,
   }
+  // slippage protection is useful for when batcher handles order much later than submission
   OSwapExactSYForPT {
-    o_market_id: OutputReference,
     o_owner_pkh: PubKeyHash,
-    o_owner_stake_key: Option<PubKeyHash>,
-    o_batcher_fee: Int,
-    o_sy_amount: Int,
+    o_receive_addr: Address,
+    o_receive_datum: Datum,
     o_min_pt_out: Int,
   }
   OSwapExactPTForSY {
-    o_market_id: OutputReference,
     o_owner_pkh: PubKeyHash,
-    o_owner_stake_key: Option<PubKeyHash>,
-    o_batcher_fee: Int,
-    o_pt_amount: Int,
+    o_receive_addr: Address,
+    o_receive_datum: Datum,
     o_min_sy_out: Int,
   }
   OSwapExactYTForSY {
-    o_market_id: OutputReference,
     o_owner_pkh: PubKeyHash,
-    o_owner_stake_key: Option<PubKeyHash>,
-    o_batcher_fee: Int,
-    o_yt_amount: Int,
+    o_receive_addr: Address,
+    o_receive_datum: Datum,
     o_min_sy_out: Int,
   }
   OSwapExactSYForYT {
-    o_market_id: OutputReference,
     o_owner_pkh: PubKeyHash,
-    o_owner_stake_key: Option<PubKeyHash>,
-    o_batcher_fee: Int,
-    o_sy_amount: Int,
+    o_receive_addr: Address,
+    o_receive_datum: Datum,
     o_min_yt_out: Int,
   }
-  OStakeYT {
-    o_market_id: OutputReference,
-    o_owner_pkh: PubKeyHash,
-    o_owner_stake_key: Option<PubKeyHash>,
-    o_batcher_fee: Int,
-    o_yt_amount: Int,
-  }
   OWithdrawYTReward {
-    o_market_id: OutputReference,
     o_owner_pkh: PubKeyHash,
-    o_owner_stake_key: Option<PubKeyHash>,
-    o_batcher_fee: Int,
+    o_receive_addr: Address,
+    o_receive_datum: Datum,
     o_stake_id: OutputReference,
   }
   OUnstakeYT {
-    o_market_id: OutputReference,
     o_owner_pkh: PubKeyHash,
-    o_owner_stake_key: Option<PubKeyHash>,
-    o_batcher_fee: Int,
+    o_receive_addr: Address,
+    o_receive_datum: Datum,
     o_stake_id: OutputReference,
   }
-}
-
-pub type UnderlyingAssetVaultDatum {
-  market_id: OutputReference,
-  total_underlying_asset: Int,
 }
 
 pub type SYVaultDatum {
@@ -192,7 +139,7 @@ pub type MarketRedeemer {
     market_info_idx: Int,
     oracle_idx: Int,
     license_idx: Int,
-    order_indices: List<(Int, Int)>,
+    order_indices: (Int, Int),
   }
   //Swaps an exact amount of SY for PT.
   MSwapExactSYForPT {
@@ -201,7 +148,7 @@ pub type MarketRedeemer {
     market_info_idx: Int,
     oracle_idx: Int,
     license_idx: Int,
-    order_indices: List<(Int, Int)>,
+    order_indices: (Int, Int),
   }
   //Swaps an exact amount of SY for YT (delegates to yield_tokenization)
   MSwapExactSYForYT { market_info_idx: Int }
@@ -221,14 +168,14 @@ pub type LPTokenRedeemer {
   }
   LPMintLp {
     market_info_ref_idx: Int,
-    order_indices: List<(Int, Int)>,
+    order_indices: (Int, Int),
     license_idx: Int,
     market_input_idx: Int,
     market_output_idx: Int,
   }
   LPBurnLp {
     market_info_ref_idx: Int,
-    order_indices: List<(Int, Int, Int)>,
+    order_indices: (Int, Int, Int),
     license_idx: Int,
     market_input_idx: Int,
     market_output_idx: Int,
@@ -238,41 +185,25 @@ pub type LPTokenRedeemer {
 
 // Yield Tokenization Redeemer
 pub type YieldTokenizationMintRedeemer {
-  YTWrapSY {
-    market_info_ref_idx: Int,
-    order_indices: List<(Int, Int)>,
-    input_underlying_asset_vault_idx: Int,
-    output_underlying_asset_vault_idx: Int,
-    license_idx: Int,
-  }
-  YTUnwrapSY {
-    market_info_ref_idx: Int,
-    order_indices: List<(Int, Int)>,
-    input_underlying_asset_vault_idx: Int,
-    output_underlying_asset_vault_idx: Int,
-    license_idx: Int,
-  }
   YTSplitSY { sy_vault_input_idx: Int }
   YTMergeSY { sy_vault_input_idx: Int }
   YTSwapSYForYT {
     market_info_ref_idx: Int,
-    order_indices: List<(Int, Int)>,
+    order_indices: (Int, Int),
     oracle_idx: Int,
     license_idx: Int,
     market_input_idx: Int,
     market_output_idx: Int,
-    sy_vault_input_idx: Int,
-    sy_vault_output_idx: Int,
+    borrowed_sy: Int,
   }
   YTSwapYTForSY {
     market_info_ref_idx: Int,
-    order_indices: List<(Int, Int)>,
+    order_indices: (Int, Int),
     oracle_idx: Int,
     license_idx: Int,
     market_input_idx: Int,
     market_output_idx: Int,
-    sy_vault_input_idx: Int,
-    sy_vault_output_idx: Int,
+    swapped_sy: Int,
   }
   YTBurn
   YTRefTokenAction
@@ -283,7 +214,7 @@ pub type SYVaultRedeemer {
     own_input_idx: Int,
     own_output_idx: Int,
     market_info_ref_idx: Int,
-    order_indices: List<(Int, Int, Int)>,
+    order_indices: (Int, Int, Int),
     oracle_idx: Int,
     license_idx: Int,
   }
@@ -291,7 +222,7 @@ pub type SYVaultRedeemer {
     own_input_idx: Int,
     own_output_idx: Int,
     market_info_ref_idx: Int,
-    order_indices: List<(Int, Int)>,
+    order_indices: (Int, Int),
     oracle_idx: Int,
     license_idx: Int,
   }
@@ -299,7 +230,7 @@ pub type SYVaultRedeemer {
     own_input_idx: Int,
     own_output_idx: Int,
     market_info_ref_idx: Int,
-    order_indices: List<(Int, Int, Int)>,
+    order_indices: (Int, Int, Int),
     oracle_idx: Int,
     license_idx: Int,
   }
@@ -307,12 +238,20 @@ pub type SYVaultRedeemer {
     own_input_idx: Int,
     own_output_idx: Int,
     market_info_ref_idx: Int,
-    order_indices: List<(Int, Int, Int, Int)>,
+    order_indices: (Int, Int, Int, Int),
     oracle_idx: Int,
     license_idx: Int,
   }
-  SYSwapSYForYT { market_info_ref_idx: Int }
-  SYSwapYTForSY { market_info_ref_idx: Int }
+  SYSwapSYForYT {
+    own_input_idx: Int,
+    own_output_idx: Int,
+    market_info_ref_idx: Int,
+  }
+  SYSwapYTForSY {
+    own_input_idx: Int,
+    own_output_idx: Int,
+    market_info_ref_idx: Int,
+  }
   SYVaultAdminAction
 }
 

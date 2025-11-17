@@ -41,8 +41,6 @@ pub const t_ytstake_authtoken_policy_id: PolicyId =
   #"c4252d86702c2f4c2e490c0e8c7cffe3c8f2b6b7d779788f50f4c9f9"
 
 // Token names
-pub const t_sy_token_name: ByteArray = "SY"
-
 pub const t_pt_token_name: ByteArray = "PT"
 
 pub const t_yt_token_name: ByteArray = "YT"
@@ -114,11 +112,10 @@ pub const t_market_info_script_hash: ByteArray =
 pub const t_market_script_hash: ByteArray =
   #"44e8c7cffe3c8f2b6b7d779788f50f4c9f9c4252d86702c2f4c2e490"
 
-pub const t_underlying_asset_vault_script_hash: ByteArray =
-  #"55e8c7cffe3c8f2b6b7d779788f50f4c9f9c4252d86702c2f4c2e490"
-
 // Timestamps
-pub const t_expiry: Int = 1767453227635
+const t_expiry: Int = 1767453227635
+
+const t_duration: Int = 31_536_000
 
 pub const t_start_time: Int = 1727453227635
 
@@ -132,20 +129,20 @@ pub const t_oracle_nft_asset: Asset =
   }
 
 // Envelope amount
-pub const t_envelope_amount: Int = 2000000
+const t_envelope_amount: Int = 2000000
 
 // AMM parameters
-pub const t_scalar_root: Int = 1000
+const t_scalar_root: Int = 1000
 
-pub const t_initial_anchor: Int = 5000
+const t_initial_anchor: Int = 5000
 
-pub const t_ln_fee_rate_root: Int = 100
+const t_ln_fee_rate_root: Int = 100
 
-pub const t_min_liquidity: Int = 100
+const t_init_py_index: Int = 10000
 
-pub const t_reserve_fee_percent: Int = 500
+const t_min_liquidity: Int = 100
 
-pub const t_multiplier: Int = 10000
+const t_multiplier: Int = 10000
 
 // Helper functions for tests
 
@@ -155,11 +152,10 @@ pub fn test_get_market_info() -> (Input, MarketInfoDatum) {
       market_id: t_market_id,
       underlying_asset: t_underlying_asset,
       min_liquidity: t_min_liquidity,
-      sy_token_name: t_sy_token_name,
       pt_token_name: t_pt_token_name,
       yt_token_name: t_yt_token_name,
       expiry: t_expiry,
-      reserve_fee_percent: t_reserve_fee_percent,
+      duration: t_duration,
       multiplier: t_multiplier,
       batcher_policy_id: t_batcher_policy_id,
       order_script_hash: t_order_script_hash,
@@ -172,6 +168,8 @@ pub fn test_get_market_info() -> (Input, MarketInfoDatum) {
       scalar_root: t_scalar_root,
       initial_anchor: t_initial_anchor,
       ln_fee_rate_root: t_ln_fee_rate_root,
+      init_py_index: t_init_py_index,
+      ln_borrow_fee_rate: 0,
     }
   let market_info_input =
     Input {
